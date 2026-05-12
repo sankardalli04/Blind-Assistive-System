@@ -1,6 +1,4 @@
 streamlit
 ultralytics
-numpy==1.26.4
 pillow
-torch
-torchvision
+numpy
