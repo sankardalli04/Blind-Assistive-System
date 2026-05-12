@@ -1,4 +1,6 @@
-streamlit
 ultralytics
-pillow
+opencv-python
+pyttsx3
+torch
+torchvision
 numpy

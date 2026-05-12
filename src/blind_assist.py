@@ -25,7 +25,11 @@ if uploaded_file is not None:
     image_np = np.array(image)
 
     st.subheader("Uploaded Image")
-    st.image(image, use_container_width=True)
+
+    st.image(
+        image,
+        use_container_width=True
+    )
 
     with st.spinner("Detecting objects..."):
 
@@ -46,16 +50,27 @@ if uploaded_file is not None:
     boxes = results[0].boxes
 
     for box in boxes:
+
         cls_id = int(box.cls[0])
+
         class_name = model.names[cls_id]
-        detected_objects.append(class_name)
+
+        confidence = float(box.conf[0])
+
+        detected_objects.append(
+            f"{class_name} ({confidence:.2f})"
+        )
+
+    st.subheader("Detected Objects")
 
     unique_objects = list(set(detected_objects))
 
-    st.subheader("Detected Objects List")
-
     if unique_objects:
+
         for obj in unique_objects:
+
             st.write(f"• {obj}")
+
     else:
+
         st.write("No objects detected.")
