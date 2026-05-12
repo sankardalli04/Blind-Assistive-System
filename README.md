@@ -1,3 +1,4 @@
+<img width="403" height="330" alt="Screenshot 2026-05-12 at 9 35 07 PM" src="https://github.com/user-attachments/assets/0459d7ba-001a-4665-90f2-bb6c977e472d" />
 # AI Blind Assistive Navigation System
 
 An AI-powered real-time assistive navigation system designed for visually impaired users using YOLOv8, OpenCV, OCR, and voice feedback.
@@ -140,3 +141,10 @@ Developed an AI-powered Blind Assistive Navigation System using YOLOv8, OpenCV, 
 # License
 
 MIT License
+
+
+
+
+
+<img width="403" height="330" alt="Screenshot 2026-05-12 at 9 35 07 PM" src="https://github.com/user-attachments/assets/0459d7ba-001a-4665-90f2-bb6c977e472d" />
+<img width="1536" height="1152" alt="image-1778602279222" src="https://github.com/user-attachments/assets/850f425a-d418-4550-bf45-78a9837b9b90" />
