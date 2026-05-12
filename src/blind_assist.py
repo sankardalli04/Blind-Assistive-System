@@ -1,76 +1,330 @@
-import streamlit as st
+import cv2
 from ultralytics import YOLO
-from PIL import Image
-import numpy as np
+import pyttsx3
+import pytesseract
+import time
 
-st.set_page_config(
-    page_title="Blind Assistive System",
-    layout="centered"
-)
+# -----------------------------
+# Initialize Voice Engine
+# -----------------------------
+engine = pyttsx3.init()
+engine.setProperty('rate', 150)
 
-st.title("Blind Assistive System")
-st.write("AI Powered Object Detection for Visually Impaired Assistance")
+# -----------------------------
+# Load YOLO Model
+# -----------------------------
+model = YOLO("../models/yolov8n.pt")
 
-model = YOLO("models/yolov8n.pt")
+# -----------------------------
+# Important Objects
+# -----------------------------
+IMPORTANT_OBJECTS = [
 
-uploaded_file = st.file_uploader(
-    "Upload an Image",
-    type=["jpg", "jpeg", "png"]
-)
+    # Humans
+    "person",
 
-if uploaded_file is not None:
+    # Vehicles
+    "car",
+    "bus",
+    "truck",
+    "motorcycle",
+    "bicycle",
+    "train",
 
-    image = Image.open(uploaded_file)
+    # Road Safety
+    "traffic light",
+    "stop sign",
+    "parking meter",
 
-    image_np = np.array(image)
+    # Indoor Navigation
+    "chair",
+    "bench",
+    "couch",
+    "bed",
+    "dining table",
+    "potted plant",
+    "tv",
+    "laptop",
+    "cell phone",
 
-    st.subheader("Uploaded Image")
+    # Doors & Access
+    "door",
 
-    st.image(
-        image,
-        use_container_width=True
+    # Animals
+    "dog",
+    "cat",
+    "horse",
+    "cow",
+
+    # Public Environment
+    "fire hydrant",
+    "backpack",
+    "handbag",
+    "suitcase",
+
+    # Kitchen / Dangerous Objects
+    "knife",
+    "bottle",
+    "cup",
+
+    # Navigation Obstacles
+    "stairs",
+    "wall",
+
+]
+
+# -----------------------------
+# Webcam
+# -----------------------------
+cap = cv2.VideoCapture(0, cv2.CAP_AVFOUNDATION)
+
+# -----------------------------
+# Voice Cooldown Memory
+# -----------------------------
+spoken_objects = {}
+
+# -----------------------------
+# FPS Variables
+# -----------------------------
+prev_time = 0
+
+# -----------------------------
+# Voice Cooldown Seconds
+# -----------------------------
+VOICE_COOLDOWN = 5
+
+print("Press 't' for OCR | 'r' reset memory | 'q' quit")
+
+# =============================
+# MAIN LOOP
+# =============================
+while True:
+
+    ret, frame = cap.read()
+
+    if not ret:
+        break
+
+    # -----------------------------
+    # FPS Calculation
+    # -----------------------------
+    current_time = time.time()
+
+    fps = 1 / (current_time - prev_time) if prev_time != 0 else 0
+
+    prev_time = current_time
+
+    # -----------------------------
+    # YOLO Detection
+    # -----------------------------
+    results = model(frame, verbose=False)
+
+    h, w, _ = frame.shape
+    frame_center = w // 2
+
+    # =============================
+    # PROCESS DETECTIONS
+    # =============================
+    for r in results:
+
+        for box in r.boxes:
+
+            cls = int(box.cls[0])
+
+            label = model.names[cls]
+
+            conf = float(box.conf[0])
+
+            # Confidence Filter
+            if conf < 0.5:
+                continue
+
+            # Important Objects Only
+            if label not in IMPORTANT_OBJECTS:
+                continue
+
+            # Bounding Box
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+
+            obj_center = (x1 + x2) // 2
+
+            # -----------------------------
+            # Direction Detection
+            # -----------------------------
+            if obj_center < frame_center - 200:
+                direction = "far left"
+
+            elif obj_center < frame_center - 100:
+                direction = "left"
+
+            elif obj_center > frame_center + 200:
+                direction = "far right"
+
+            elif obj_center > frame_center + 100:
+                direction = "right"
+
+            else:
+                direction = "ahead"
+
+            # -----------------------------
+            # Distance Estimation
+            # -----------------------------
+            area = (x2 - x1) * (y2 - y1)
+
+            if area > 120000:
+                distance_msg = "emergency"
+                danger = True
+
+            elif area > 80000:
+                distance_msg = "very close"
+                danger = True
+
+            elif area > 30000:
+                distance_msg = "near"
+                danger = False
+
+            else:
+                distance_msg = "far"
+                danger = False
+
+            # -----------------------------
+            # Alert Message
+            # -----------------------------
+            if distance_msg == "emergency":
+
+                message = f"Emergency stop! {label} extremely close"
+
+            elif danger:
+
+                message = f"Danger! {label} {direction}, very close"
+
+            else:
+
+                message = f"{label} {direction}, {distance_msg}"
+
+            # -----------------------------
+            # Unique Object Key
+            # -----------------------------
+            object_key = f"{label}_{direction}"
+
+            # -----------------------------
+            # Smart Voice Cooldown
+            # -----------------------------
+            current = time.time()
+
+            should_speak = (
+                object_key not in spoken_objects
+                or current - spoken_objects[object_key] > VOICE_COOLDOWN
+            )
+
+            if should_speak:
+
+                print("Speaking:", message)
+
+                try:
+                    engine.say(message)
+                    engine.runAndWait()
+
+                except Exception as e:
+                    print("Voice Error:", e)
+
+                spoken_objects[object_key] = current
+
+            # -----------------------------
+            # Bounding Box Color
+            # -----------------------------
+            color = (0, 0, 255) if danger else (0, 255, 0)
+
+            # Draw Rectangle
+            cv2.rectangle(
+                frame,
+                (x1, y1),
+                (x2, y2),
+                color,
+                2
+            )
+
+            # Display Text
+            cv2.putText(
+                frame,
+                message,
+                (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                color,
+                2
+            )
+
+    # -----------------------------
+    # FPS Display
+    # -----------------------------
+    cv2.putText(
+        frame,
+        f"FPS: {int(fps)}",
+        (20, 40),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        (255, 0, 0),
+        2
     )
 
-    with st.spinner("Detecting objects..."):
+    # -----------------------------
+    # Show Window
+    # -----------------------------
+    cv2.imshow("Blind Assistive System", frame)
 
-        results = model(image_np)
+    key = cv2.waitKey(1) & 0xFF
 
-        annotated_frame = results[0].plot()
+    # =============================
+    # OCR TEXT READER
+    # =============================
+    if key == ord('t'):
 
-    st.subheader("Detection Results")
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    st.image(
-        annotated_frame,
-        caption="Detected Objects",
-        use_container_width=True
-    )
+        gray = cv2.threshold(
+            gray,
+            150,
+            255,
+            cv2.THRESH_BINARY
+        )[1]
 
-    detected_objects = []
+        text = pytesseract.image_to_string(gray)
 
-    boxes = results[0].boxes
+        if text.strip() != "":
 
-    for box in boxes:
+            print("Detected Text:", text)
 
-        cls_id = int(box.cls[0])
+            try:
+                engine.say(text)
+                engine.runAndWait()
 
-        class_name = model.names[cls_id]
+            except Exception as e:
+                print("OCR Voice Error:", e)
 
-        confidence = float(box.conf[0])
+        else:
 
-        detected_objects.append(
-            f"{class_name} ({confidence:.2f})"
-        )
+            engine.say("No readable text found")
+            engine.runAndWait()
 
-    st.subheader("Detected Objects")
+    # =============================
+    # RESET MEMORY
+    # =============================
+    if key == ord('r'):
 
-    unique_objects = list(set(detected_objects))
+        spoken_objects.clear()
 
-    if unique_objects:
+        print("Memory Reset")
 
-        for obj in unique_objects:
+    # =============================
+    # QUIT
+    # =============================
+    if key == ord('q'):
+        break
 
-            st.write(f"• {obj}")
+# -----------------------------
+# Release Resources
+# -----------------------------
+cap.release()
 
-    else:
-
-        st.write("No objects detected.")
+cv2.destroyAllWindows()

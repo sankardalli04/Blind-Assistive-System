@@ -77,8 +77,6 @@ with col2:
 
 st.divider()
 
-
-
 st.subheader("📈 Project Statistics")
 
 col1, col2, col3 = st.columns(3)
@@ -91,6 +89,8 @@ with col2:
 
 with col3:
     st.metric("Detection Accuracy", "92%")
+
+
 
 st.success("AI-powered assistive navigation system is successfully running.")
 st.divider()
